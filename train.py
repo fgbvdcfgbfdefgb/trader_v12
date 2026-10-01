@@ -150,9 +150,9 @@ class EmaWeights:
         for k, v in model.state_dict().items():
             s = self.shadow[k]
             if v.dtype.is_floating_point:
-                s.mul_(self.decay).add_(v.detach(), alpha=1.0 - self.decay)
+                s.mul_(self.decay).add_(v.detach().to(s.device), alpha=1.0 - self.decay)
             else:
-                s.copy_(v)
+                s.copy_(v.to(s.device))
 
 
 def parse_args():
@@ -383,7 +383,9 @@ def main():
                 ck = torch.load(pth, map_location="cpu", weights_only=False)
                 sched.i = int(ck.get("sched_i", 0))
                 if ema is not None and "ema" in ck:
-                    ema.shadow = {k: v.clone() for k, v in ck["ema"].items()}
+                    ref = live.state_dict()
+                    ema.shadow = {k: v.detach().to(ref[k].device)
+                                  for k, v in ck["ema"].items()}
                     inf.load_state_dict(ema.shadow)
         for name, opt, base, attr in (("trader_a", opt_ta, args.lr_trader, "mult_a"),
                                        ("trader_b", opt_tb, args.lr_b, "mult_b")):
