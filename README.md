@@ -20,7 +20,7 @@ including **one dedicated chart per trader per epoch**.
      threads (~10× faster eval rounds).
 2. **Bigger, more precise agents**
    - New **XL tier** for A10G-class GPUs: predictor/analyzer **GRU 640×3**
-     (~9M params each, LayerNorm), traders **MLP 8192-8192-8192 (~147M params
+     (~6.2M params each, LayerNorm), traders **MLP 8192-8192-8192 (~147M params
      each)** — sized to the VRAM budget (`--vram-budget-gb`, 20 GB cap).
    - **EMA (weight-averaged) predictor/analyzer** feed the traders and the
      evaluations — steadier, more precise forecasts than raw weights.
@@ -40,11 +40,11 @@ traders, two competing traders A/B.
 
 | Model | params | fp32 size |
 |---|---|---|
-| Price predictor (GRU 640×3 + LN) | ~9.0M | 36 MB |
-| Market analyzer (GRU 640×3 + LN) | ~9.0M | 36 MB |
+| Price predictor (GRU 640×3 + LN) | ~6.2M | 25 MB |
+| Market analyzer (GRU 640×3 + LN) | ~6.2M | 25 MB |
 | Trade maker A (MLP 8192×3) | ~147M | 587 MB |
 | Trade maker B (MLP 8192×3) | ~147M | 587 MB |
-| **Total** | **~312M** | **~1.2 GB** (×3 with Adam states) |
+| **Total** | **~306M** | **~1.2 GB** (×3 with Adam states) |
 
 Peak per-GPU VRAM (weights + Adam + activations) is printed every epoch and
 stays well inside the 20 GB budget.
