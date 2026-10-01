@@ -241,58 +241,75 @@ def plot_trader_day(
     plt.close(fig)
 
 
+
 def plot_traders_stacked(path, epoch, date, closes, spec_a, spec_b, capital,
-                         target, extra=""):
-    """v12.1: ONE tall PNG per epoch covering BOTH trade makers - trader A's
-    panel stack on top, trader B's directly below it (B's earning graph sits
-    under A's). Each agent's section: 3x price-with-exposure, equity curve
-    with stats, per-coin portfolio weights."""
+                         target, extra="", tag_a="A", tag_b="B"):
+    """v12.2: ONE tall PNG per epoch for BOTH trade makers. The market data
+    (3 normalised price panels) is drawn ONCE; each price panel carries a thin
+    exposure ribbon per trader (top ribbon = first trader, bottom = second).
+    Below the market: each trader's equity curve with stats, then per-coin
+    portfolio weights. No market data is duplicated."""
     from .features import W as _W
 
     T = closes.shape[0]
-    specs = [("A", spec_a)]
+    specs = [(tag_a, spec_a)]
     if spec_b is not None:
-        specs.append(("B", spec_b))
+        specs.append((tag_b, spec_b))
     n_sections = len(specs)
-    fig = plt.figure(figsize=(16, 11 * n_sections), dpi=100)
-    gs = fig.add_gridspec(5 * n_sections, 1, hspace=0.85)
+    rows = 3 + 2 * n_sections
+    fig = plt.figure(figsize=(16, 2.3 * rows + 1.6), dpi=100)
+    gs = fig.add_gridspec(rows, 1, hspace=0.8)
+
     eq_a = spec_a["equity"]
-    head = f"trader A ${eq_a[-1]:.2f}"
+    head = f"trader {tag_a} ${eq_a[-1]:.2f}"
     if spec_b is not None:
-        head += f"  vs  trader B ${spec_b['equity'][-1]:.2f}"
+        head += f"  vs  trader {tag_b} ${spec_b['equity'][-1]:.2f}"
     fig.suptitle(
         f"{head} | epoch {epoch} | {date} UTC | start ${capital:.0f} "
         f"target ${target:.2f}" + (f" | {extra}" if extra else ""),
         fontsize=14,
     )
 
+    # ---- market section: 3 price panels, drawn once, with exposure ribbons ----
+    n = len(eq_a)
+    xw = np.arange(_W - 1, _W - 1 + n)
+    for i, pair in enumerate(PAIRS):
+        ax = fig.add_subplot(gs[i])
+        y = closes[:, i] / max(closes[0, i], 1e-9)
+        ax.plot(np.arange(T), y, color=COLORS[pair], lw=0.9)
+        lo, hi = float(np.min(y)), float(np.max(y))
+        if hi - lo < 1e-12:
+            hi = lo + 1e-3
+        pad = (hi - lo) * 0.08
+        strip = (hi - lo) * 0.05
+        gap = (hi - lo) * 0.015
+        y_bot = lo - pad - (2 * strip + gap)
+        ax.set_xlim(0, T)
+        ax.set_ylim(y_bot - strip * 0.4, hi + pad)
+        for r, (tag, spec) in enumerate(specs):
+            w = spec["weights"][:, i]
+            yb = y_bot + strip + gap if r == 0 else y_bot
+            ax.fill_between(xw, yb, yb + strip, where=w > 0.05, color="#2ecc71", alpha=0.6, linewidth=0)
+            ax.fill_between(xw, yb, yb + strip, where=w < -0.05, color="#e74c3c", alpha=0.6, linewidth=0)
+        badge = "  [TARGET HIT]" if (i == 0 and (spec_a.get("hit") or (spec_b or {}).get("hit"))) else ""
+        rib = f"ribbons = exposure (green long / red short): upper {tag_a}"
+        if spec_b is not None:
+            rib += f", lower {tag_b}"
+        ax.set_title(f"{pair} close (normalised) | {rib}{badge}", fontsize=9)
+        ax.set_ylabel("norm price")
+        ax.grid(alpha=0.15)
+
+    # ---- per-trader section: equity + weights (no market duplication) ----
     for s, (tag, spec) in enumerate(specs):
         weights, equity = spec["weights"], spec["equity"]
         hit, mc = spec.get("hit", False), spec.get("margin_call", False)
-        color = "#8e44ad" if tag == "A" else "#e67e22"
-        n = len(equity)
-        xw = np.arange(_W - 1, _W - 1 + n)
-        base = s * 5
-        for i, pair in enumerate(PAIRS):
-            ax = fig.add_subplot(gs[base + i])
-            y = closes[:, i] / max(closes[0, i], 1e-9)
-            ax.plot(np.arange(T), y, color=COLORS[pair], lw=0.9)
-            lo, hi = float(np.min(y)), float(np.max(y))
-            if hi - lo < 1e-12:
-                hi = lo + 1e-3
-            pad = (hi - lo) * 0.08
-            ax.fill_between(xw, lo - pad, hi + pad, where=weights[:, i] > 0.05, color="#2ecc71", alpha=0.25, linewidth=0)
-            ax.fill_between(xw, lo - pad, hi + pad, where=weights[:, i] < -0.05, color="#e74c3c", alpha=0.25, linewidth=0)
-            ax.set_xlim(0, T)
-            badge = "  [TARGET HIT]" if (i == 0 and hit) else ""
-            ax.set_title(f"TRADER {tag} | {pair} close (normalised) - green=long, red=short{badge}", fontsize=9)
-            ax.set_ylabel("norm price")
-            ax.grid(alpha=0.15)
+        color = "#8e44ad" if s == 0 else "#e67e22"
+        nx = np.arange(_W - 1, _W - 1 + len(equity))
 
-        ax = fig.add_subplot(gs[base + 3])
-        ax.plot(xw, equity, color=color, lw=1.2)
-        ax.fill_between(xw, capital, equity, where=equity >= capital, color="#2ecc71", alpha=0.15, linewidth=0)
-        ax.fill_between(xw, capital, equity, where=equity < capital, color="#e74c3c", alpha=0.15, linewidth=0)
+        ax = fig.add_subplot(gs[3 + 2 * s])
+        ax.plot(nx, equity, color=color, lw=1.2)
+        ax.fill_between(nx, capital, equity, where=equity >= capital, color="#2ecc71", alpha=0.15, linewidth=0)
+        ax.fill_between(nx, capital, equity, where=equity < capital, color="#e74c3c", alpha=0.15, linewidth=0)
         ax.axhline(capital, color="gray", ls="--", lw=0.8, label=f"start ${capital:.0f}")
         ax.axhline(target, color="#2ecc71", ls="--", lw=0.9, label=f"target ${target:.0f}")
         stats = (f"final ${equity[-1]:.2f}   max ${equity.max():.2f}   min ${equity.min():.2f}   "
@@ -302,9 +319,9 @@ def plot_traders_stacked(path, epoch, date, closes, spec_a, spec_b, capital,
         ax.legend(fontsize=8)
         ax.grid(alpha=0.15)
 
-        ax = fig.add_subplot(gs[base + 4])
+        ax = fig.add_subplot(gs[4 + 2 * s])
         for i, pair in enumerate(PAIRS):
-            ax.plot(xw, weights[:, i], lw=0.8, color=COLORS[pair], label=pair)
+            ax.plot(nx, weights[:, i], lw=0.8, color=COLORS[pair], label=pair)
         ax.axhline(0, color="gray", lw=0.8)
         ax.set_ylim(-1.15, 1.15)
         n_switch = int((np.abs(np.diff(weights, axis=0)) > 0.15).sum())

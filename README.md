@@ -27,10 +27,11 @@ including **one dedicated chart per trader per epoch**.
    - Predictor/analyzer take more gradient steps per epoch (tier-scaled:
      16 steps on 24-day batches at XL).
 3. **One tall PNG per epoch for BOTH traders** (all other graphs unchanged):
-   `epoch_XXXXX_<date>_traders.png` stacks trader A's full panel set on top
-   and trader B's directly below it — each agent's response to that day's
-   market: exposure shading on prices, equity curve with best/worst stats,
-   and per-coin portfolio-weight decisions.
+   `epoch_XXXXX_<date>_traders.png` draws the day's market ONCE (3 normalised
+   price panels, each carrying a thin long/short exposure ribbon per trader —
+   A's ribbon above B's), followed by each agent's equity curve with
+   best/worst stats and per-coin portfolio-weight decisions, trader B's
+   directly below trader A's.
 
 Carried over from v10: vol-normalized 4-horizon targets + correlation loss
 (anti-flat-line predictor), warmup+cosine LR for advisors, KL-adaptive LR for
@@ -63,9 +64,11 @@ or `bash scripts/snowflake_run.sh`.
 ```
 runs/
   epochs/epoch_XXXXX_YYYY-MM-DD.png            <- combined day snapshot (both traders)
-  epochs/epoch_XXXXX_YYYY-MM-DD_traders.png    <- ONE tall PNG with BOTH agents:
-                                                  trader A's panels on top, trader B's
-                                                  directly below (v12.1)
+  epochs/epoch_XXXXX_YYYY-MM-DD_traders.png    <- ONE tall PNG with BOTH agents
+                                                  (v12.2): market drawn ONCE (3 price
+                                                  panels, each with an exposure ribbon
+                                                  per trader), then A's equity+weights,
+                                                  then B's directly below
   training_curves.png                          <- 12 panels incl. predictor correlation
   metrics.csv                                  <- all numbers (hit_* now = fraction of
                                                   the epoch's days that reached target)

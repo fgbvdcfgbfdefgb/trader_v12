@@ -146,11 +146,14 @@ def main():
                 specs[tag] = {"weights": e.weights_hist, "equity": e.equity_hist,
                               "hit": bool(all_rows[tag][-len(batch_dates) + b]["hit"]),
                               "margin_call": bool(e.margin_call)}
-            first = specs.get("a", specs[list(specs)[0]])
+            first_tag = "a" if "a" in specs else list(specs)[0]
+            second = specs.get("b")
             plots.plot_traders_stacked(
                 os.path.join(args.out, f"eval_{d}_traders.png"), 0, d, closes,
-                first, specs.get("b"), args.capital, args.target,
-                extra="held-out evaluation")
+                specs[first_tag], second, args.capital, args.target,
+                extra="held-out evaluation",
+                tag_a=first_tag.upper(),
+                tag_b=("b" if second is not None else first_tag).upper())
 
     for tag, rows in all_rows.items():
         with open(os.path.join(args.out, f"eval_results_{tag}.csv"), "w", newline="") as f:
