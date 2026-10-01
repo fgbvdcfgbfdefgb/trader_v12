@@ -140,13 +140,16 @@ def main():
                 hit_b=False,
                 margin_call=bool(all_rows[snap_tag][-len(batch_dates) + b]["margin_call"]),
                 extra=f"held-out evaluation (trader {snap_tag.upper()})")
-            plots.plot_trader_day(
-                os.path.join(args.out, f"eval_{d}_trader{snap_tag.upper()}.png"),
-                snap_tag.upper(), 0, d, closes,
-                env_by_tag[snap_tag][b].weights_hist, env_by_tag[snap_tag][b].equity_hist,
-                args.capital, args.target,
-                hit=bool(all_rows[snap_tag][-len(batch_dates) + b]["hit"]),
-                margin_call=bool(all_rows[snap_tag][-len(batch_dates) + b]["margin_call"]),
+            specs = {}
+            for tag in traders:
+                e = env_by_tag[tag][b]
+                specs[tag] = {"weights": e.weights_hist, "equity": e.equity_hist,
+                              "hit": bool(all_rows[tag][-len(batch_dates) + b]["hit"]),
+                              "margin_call": bool(e.margin_call)}
+            first = specs.get("a", specs[list(specs)[0]])
+            plots.plot_traders_stacked(
+                os.path.join(args.out, f"eval_{d}_traders.png"), 0, d, closes,
+                first, specs.get("b"), args.capital, args.target,
                 extra="held-out evaluation")
 
     for tag, rows in all_rows.items():

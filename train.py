@@ -861,18 +861,21 @@ def main():
                     hit_b=bool(finals_b[0] >= args.target) if env_b0 is not None else False,
                     margin_call=env_a0.margin_call,
                     extra=f"A PnL {finals_a[0] - args.capital:+.2f}$ ({dpe}d mean {final_eq_a - args.capital:+.2f}$)")
-                # v12: one dedicated PNG per trader per epoch
-                plots.plot_trader_day(
-                    os.path.join(args.out, "epochs", f"epoch_{epoch:05d}_{date0}_traderA.png"),
-                    "A", epoch, date0, closes0, env_a0.weights_hist, env_a0.equity_hist,
-                    args.capital, args.target, hit=bool(finals_a[0] >= args.target),
-                    margin_call=env_a0.margin_call)
-                if env_b0 is not None:
-                    plots.plot_trader_day(
-                        os.path.join(args.out, "epochs", f"epoch_{epoch:05d}_{date0}_traderB.png"),
-                        "B", epoch, date0, closes0, env_b0.weights_hist, env_b0.equity_hist,
-                        args.capital, args.target, hit=bool(finals_b[0] >= args.target),
-                        margin_call=env_b0.margin_call)
+                # v12.1: ONE tall PNG for BOTH traders - A's panels on top,
+                # B's directly below (B's earning graph under A's)
+                plots.plot_traders_stacked(
+                    os.path.join(args.out, "epochs", f"epoch_{epoch:05d}_{date0}_traders.png"),
+                    epoch, date0, closes0,
+                    {"weights": env_a0.weights_hist, "equity": env_a0.equity_hist,
+                     "hit": bool(finals_a[0] >= args.target),
+                     "margin_call": env_a0.margin_call},
+                    None if env_b0 is None else
+                    {"weights": env_b0.weights_hist, "equity": env_b0.equity_hist,
+                     "hit": bool(finals_b[0] >= args.target),
+                     "margin_call": env_b0.margin_call},
+                    args.capital, args.target,
+                    extra=f"{dpe}d mean A {final_eq_a - args.capital:+.2f}$"
+                          + (f" / B {final_eq_b - args.capital:+.2f}$" if env_b0 is not None else ""))
                 plots.plot_curves(os.path.join(args.out, "training_curves.png"),
                                   hist, args.capital, args.target)
 
